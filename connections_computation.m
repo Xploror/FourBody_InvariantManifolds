@@ -109,7 +109,9 @@ w_l1 = 2*pi/(2*b_l1);
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% COMPUTATION OF PERIODIC ORBIT OVER %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% COMPUTATION OF QUASI-PERIODIC ORBITS %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-rho_l1 = 0.08*w_l1/(n_3-1);
+[dphii_l1, phii_l1, x_l1] = get_STM(t_dc(end),Xl1_dc(1,:)',4,1);  % Taking out STM for periodic orbit from TBP but now calculating it for FBP
+[rvec, rho] = eig(phii_l1);
+rho_l1 = angle(rho(3,3));
 %rho_l2 = w_l2/(n_3-1);
 
 theta_l1 = parameterize(Xl1_dc,l1_pos_io,'2D');
@@ -117,22 +119,22 @@ theta_l1 = parameterize(Xl1_dc,l1_pos_io,'2D');
 %%%%%%% Taking periodic orbit from 3BP as an initial guess for Newton's method, find invariant cicle for the stroboscopic map
 
 %%%%%%%% DFT of initial states section %%%%%%%%
-N2 = 19; % Total number of discrete points on invariant circle (KEEP IT ODD)
+N2 = 49; % Total number of discrete points on invariant circle (KEEP IT ODD)
 m2 = (N2-1)/2;  % FS truncation order
 k = -(N2-1)/2:(N2-1)/2;
 
 % U = [];
 % for i=1:length(t_dc)
-%     PHI = get_STM(2*b_l1,Xl1_dc(i,:)');
+%     PHI = get_STM(2*b_l1,Xl1_dc(i,:)',4,1);
 %     [evec,eval] = eig(PHI);
 %     uu = real(exp(1i*theta_l1(i))*evec(:,3));
 %     U = [U uu/norm(uu)];
 % end
 U = 0;
-U_exp = Xl1_dc + 0*10^(-3)*U';  % Liner approximation of invariant curve (length(t_dc),5)
+U_exp = Xl1_dc(:,1:4) + 1*10^(-5)*U';  % Linear approximation of invariant curve (length(t_dc),5)
 
 % Creating initial Family Tangent vector
-del = 1.1*del_x;
+del = 1.5*del_x;
 X_tang = get_nearby_orbit(l1_pos_io,del,l1_eigvec_io,[mu1,a_2,a_3]);
 
 X_coll0 = [];
@@ -148,71 +150,99 @@ for i=1:N2
     X_tang0 = [X_tang0; X_tang(idx,1:4)'];   % Collected equivalent of family tangent vector
 end
 X_tang_vec = X_coll0 - X_tang0;
-X_coll = X_coll0;
+w_coll0 = 2*pi/t_dc(end);  % For phase condition
 
 % creating DFT and inverse DFT matrix
 DFT = zeros(length(X_coll0),length(X_coll0));
 Q = zeros(length(X_coll0),length(X_coll0));
 w = exp(-1i*2*pi/N2);
 for i=1:N2
-    Q(1+4*(i-1):4+4*(i-1),1+4*(i-1):4+4*(i-1)) = exp(-1i*(-0.5*(N2-1)+i)*rho_l1)*eye(4);
+    Q(1+4*(i-1):4+4*(i-1),1+4*(i-1):4+4*(i-1)) = exp(-1i*(-0.5*(N2-1)+(i-1))*rho_l1)*eye(4);
     for j=1:N2
-        DFT(1+4*(i-1):4+4*(i-1),1+4*(j-1):4+4*(j-1)) = w^(-0.5*(j-1)*(N2-1) + i)*eye(4);
+        DFT(1+4*(i-1):4+4*(i-1),1+4*(j-1):4+4*(j-1)) = w^(-(j-1)*(0.5*(N2-1) - (i-1)))*eye(4);
     end
 end
-KKK = sparse(DFT'*Q*DFT/N2);
-D_rho = DFT'*(kron(1i*diag(1:N2),eye(4)))*DFT/N2;
-X_dtheta = real(D_rho*X_coll0);
-LL = sparse(real(D_rho*KKK));
-
+KKK = sparse(DFT'*Q*DFT/N2);  % 4*N2 square  (Lujan)
+D_rho = DFT'*(kron(1i*diag(1:N2),eye(4)))*DFT/N2;  % 4*N2 square  (Lujan)
+X_dtheta = real(D_rho*X_coll0);   % 4*N2 vector
+LL = sparse(real(D_rho*KKK));     % 4*N2 square
 %%%%%%%%%%%%%%%%%%%%%% Gauss Legendre section %%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-lmda = 1e-14; % Just an initial guess
-psued_arc = 10;
+lmda = 0*1e-14; % Just an initial guess
+psued_arc = 0;
 
 %%% (For now) Use Newton method only for one trajectory (i.e only one vector from collected state vector)
-m = 12;  % Order of legendre polynomial (SHOULD BE EVEN)
+m = 6;  % Order of legendre polynomial (SHOULD BE EVEN)
 N = 1; %50 % Number of collocation points
-newton_iter = 5;
+newton_iter = 6;
 %%%%%%%%%%%% Newton's methods iterations %%%%%%%%%%%%%%%%%%
-% Create Xi,j coeff for m order lagrange polynomial from Xi,0 at tau(i,0)
+X_interval = [];
 for j=0:N2-1
-    X_invcir = X_coll(1+4*j:4+4*j);
-    X_interval = kron(ones(m+1,1),X_invcir); % x_interval for each interval
-    X_interval = [kron(ones(N,1),X_interval); zeros(4,1); rho_l1]; % THIS VARIABLE NEED TO BE CONVERGED DURING NEWTON'S METHOD (HAS ALL THE INTERVAL)
-    G_mat = [];
+    X_invcir = X_coll0(1+4*j:4+4*j);
+    X_interval = [X_interval; [kron(ones(N,1),kron(ones(m+1,1),X_invcir)); X_invcir]]; % x_interval for each invariant point on orbit
+end
+X_interval = [X_interval; rho_l1]; % THIS VARIABLE NEED TO BE CONVERGED DURING NEWTON'S METHOD (HAS ALL THE INTERVAL) TOTAL SIZE --> N2*(4*N*(m+1)+4)+1 SQUARE
+G_mat = [];
+len_J_total = 4*N*(m+1);  % Total number of collocation + continuity constraint
     for h=1:newton_iter
-               J_total = zeros((4*N*(m+1)+4)+1,(4*N*(m+1)+4)+1);    % REFER THE SIZE INFO FROM OLIKARA FIG.2.1 (Added coll+cont+quasiperiod+phase | Xij+Xn0+rho)
+               J_TOT = zeros(N2*(4*N*(m+1)+4)+1,N2*(4*N*(m+1)+4)+1);
+               J_total = zeros((4*N*(m+1)+4),(4*N*(m+1)+4));    % REFER THE SIZE INFO FROM OLIKARA FIG.2.1 (Added coll+cont+quasiperiod+phase | Xij+Xn0+rho)
                G_total = [];
-               % Adding collocation + continuity condition
-               for i=1:N
-                   tau_interval = [(i-1)/N i/N];
-                   X_ = X_interval(1+4*(m+1)*(i-1):(4*(m+2))+4*(m+1)*(i-1));
-                   [J, G] = BVP(X_, tau_interval(1), 1/N, m, [rho_l1, lmda, ((a_3/a_2)-mu1), n_3, mu1, mu2, l1_pos_io, b_l1]);
-                   J_total(1+4*(m+1)*(i-1):(4*(m+1))+4*(m+1)*(i-1), 1+4*(m+1)*(i-1):(4*(m+2))+4*(m+1)*(i-1)) = J;                  % d/d(Xij)
-                   G_total = [G_total; G];
+               Rot = real(KKK);
+               X_ends = []; X_init = [];
+               for j=1:N2
+                   X_init = [X_init; X_interval(1 + (4*(m+1)*N+4)*(j-1): 4 + (4*(m+1)*N+4)*(j-1))];
+                   X_ends = [X_ends; X_interval(4*(m+1)*N+1 + (4*(m+1)*N+4)*(j-1): 4*(m+1)*N+4 + (4*(m+1)*N+4)*(j-1))];
                end
-               % Adding QuasiPeriodic Condition (IMPORTANT : Rot and LL inputs collected states at last collocation point, so index matching means 1+4*j:4+4*j and not end-3:end)
-               Rot = real(KKK(1+4*j:4+4*j,1+4*j:4+4*j));
-               G_total = [G_total; X_interval(1:4)-Rot*X_interval(end-4:end-1)];
-               J_total(end-4:end-1,end-4:end-1) = -Rot; J_total(end-4:end-1,1:4) = eye(4);    % d/d(Xij)
-               J_total(end-4:end-1,end) = -LL(1+4*j:4+4*j,1+4*j:4+4*j)*X_interval(end-4:end-1);   % d/d(rho)
+               x_rot = Rot*X_ends;
+               % Adding collocation + continuity condition
+               for j=1:N2
+                   X_int = X_interval(1+(len_J_total+4)*(j-1):(len_J_total+4)+(len_J_total+4)*(j-1));
+                   for i=1:N
+                       tau_interval = [(i-1)/N i/N];
+                       X_ = X_int(1+4*(m+1)*(i-1):(4*(m+2))+4*(m+1)*(i-1));
+                       [J, G] = BVP(X_, tau_interval(1), 1/N, m, [rho_l1, lmda, ((a_3/a_2)-mu1), n_3, mu1, mu2, l1_pos_io, b_l1]);
+                       %J_total(1+4*(m+1)*(i-1):(4*(m+1))+4*(m+1)*(i-1), 1+4*(m+1)*(i-1):(4*(m+2))+4*(m+1)*(i-1)) = J;                  % d/d(Xij)
+                       J_total(1+4*(m+1)*(i-1):(4*(m+1))+4*(m+1)*(i-1), 1+4*(m+1)*(i-1):(4*(m+2))+4*(m+1)*(i-1)) = J;   % N2*(4*N*(m+1)) X N2*(4*N*(m+1)+4)
+                       G_total = [G_total; G]; 
+                   end
+                   G_total = [G_total; X_interval(1+(len_J_total+4)*(j-1):4+(len_J_total+4)*(j-1))-x_rot(1+4*(j-1):4+4*(j-1))];
+                   J_total(end-3:end,1:4) = eye(4);    % d/d(X_N,0) 
+                   J_TOT(1+(j-1)*(len_J_total+4):4+len_J_total+(j-1)*(len_J_total+4), 1+(j-1)*(len_J_total+4):4+len_J_total+(j-1)*(len_J_total+4)) = J_total(1:len_J_total+4, 1:len_J_total+4);  % N2*(4*N*(m+1)+4) SQUARE
+                   
+                   % Adding QuasiPeriodic Condition 
+                   for i=1:N2
+                      J_TOT(1+4*(m+1)*N + (4*(m+1)*N+4)*(j-1):4+4*(m+1)*N + (4*(m+1)*N+4)*(j-1), 1+4*(m+1)*N + (4*(m+1)*N+4)*(i-1):4+4*(m+1)*N + (4*(m+1)*N+4)*(i-1)) =  -Rot(1+4*(j-1):4+4*(j-1), 1+4*(i-1):4+4*(i-1));
+                   end
+               end
+
+               % ddrho = -LL*X_ends;   %d/d(rho) (MAKE it right with x_ends)
+               % for i=1:N2
+               %      J_TOT(1 + (4*(m+1)*N+4)*(i-1):4 + (4*(m+1)*N+4)*(i-1), end) = ddrho(1+4*(i-1): 4+4*(i-1));
+               % end
+
                %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
                %%%%%%%%% Adding Phase Condition
-               Xdiff = (X_coll-X_coll0);
-               G_total = [G_total; dot(Xdiff(1+4*j:4+4*j), X_dtheta(1+4*j:4+4*j))];
-               J_total(end,1:4) = X_dtheta(1+4*j:4+4*j)';                                     % d/d(Xij)
+               fff = F_coll(X_coll0,[0,0],lmda,[(a_3/a_2)-mu1,0],[n_3, mu1, mu2, 4, l1_pos_io, 2*b_l1]);  % For phase condition
+               Xdiff = (X_init-X_coll0);
+               X_dtheta1 = (1/w_coll0)*(fff - n_3*X_dtheta);
+               G_total = [G_total; dot(Xdiff, X_dtheta1)];                                     
+               for i=1:N2
+                    J_TOT(end, 1 + (4*(m+1)*N+4)*(i-1):4 + (4*(m+1)*N+4)*(i-1)) = X_dtheta1(1+4*(i-1):4+4*(i-1))';          % d/d(Xij)
+               end
                %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
                %%%%%%%%% Adding Pseudo-arclength Condition
-%                G_total = [G_total; (X_interval(1+4*j:4+4*j)-X_tang0(1+4*j:4+4*j))'*X_tang_vec(1+4*j:4+4*j) - psued_arc/N2];
-%                J_total(end,1:4) = X_tang_vec(1+4*j:4+4*j)';
+               % G_total = [G_total; (X_init-X_tang0)'*X_tang_vec - psued_arc];
+               % for i=1:N2
+               %      J_TOT(end, 1 + (4*(m+1)*N+4)*(i-1):4 + (4*(m+1)*N+4)*(i-1)) = X_tang_vec(1+4*(i-1):4+4*(i-1))';
+               % end
                %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
                G_mat = [G_mat norm(G_total)];
-               X_interval = X_interval - pinv(J_total)*G_total;
-               %%%% Update the X_coll and tangent vector for use in pseudo-arclength and phase condition
-               X_coll(1+4*j:4+4*j) = X_interval(1:4);
-               X_tang_vec = X_coll - X_tang0;
+               X_interval = X_interval - pinv(J_TOT)*G_total;
+               %%%% Update tangent vector for use in pseudo-arclength and phase condition
+               %X_tang_vec = X_init - X_tang0;
+               X_dtheta = real(D_rho*X_init);  % X_dtheta extracted from previous newton stage X_init
                for i=1:N2
-                    Q(1+4*(i-1):4+4*(i-1),1+4*(i-1):4+4*(i-1)) = exp(-1i*(-0.5*(N2-1)+i)*X_interval(end))*eye(4);
+                    Q(1+4*(i-1):4+4*(i-1),1+4*(i-1):4+4*(i-1)) = exp(-1i*(-0.5*(N2-1)+(i-1))*X_interval(end))*eye(4);
                end
                KKK = sparse(DFT'*Q*DFT/N2);
                LL = sparse(real(D_rho*KKK));
@@ -229,7 +259,6 @@ for j=0:N2-1
 %     hold on;
 %     pause(0.000000001)
     %%%%%%%%%%%%%%%%%%%%
-end
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 
@@ -270,6 +299,7 @@ for j=1:m  % iterating over collocation points btw a single tau interval
     tau_j = tau + 0.5*(roots(j+1)+1)*tau_diff;  % preparing for F_coll (RESCALING)
     x_dyn = [x(1+4*j:4+4*j); tau_j*2*pi]; % This should only be used for F_coll (5x1) (Contains Ganymede's current position and required for stroboscopic mapping in F_coll)
     f = F_coll(x_dyn,[tau_j,rho_l1*tau_j],lmda,[extras(3),0],[n_3, mu1, mu2, 5, l1_pos_io, 2*b_l1]);
+    f = f(1:4);
     S = 0;
     for k=1:m+1
         % define lagrange basis polynomial
