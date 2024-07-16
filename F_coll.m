@@ -26,7 +26,7 @@ for i=1:N   % iterating over DFT points in invariant circle
    x = x_coll(1+n*(i-1):n+n*(i-1));  %5x1
    angle2 = atan2(x(2),x(1)-l1);
    if n==4
-       x = [x; 2*pi*tau];   % If x_coll doesnt have perturber angle included, add it here for each of DFT point (N2)
+       x = [x; angle1];   % If x_coll doesnt have perturber angle included, add it here for each of DFT point (N2)
        dvdx = [x(2)/(sin(angle2))^2 (x(1)-l1)/(cos(angle2))^2 0 0]; %1x4
    elseif n==5
        dvdx = [x(2)/(sin(angle2))^2 (x(1)-l1)/(cos(angle2))^2 0 0 0]; %1x5

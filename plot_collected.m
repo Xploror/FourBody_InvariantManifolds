@@ -16,4 +16,14 @@ elseif tag == "velocity"
         hold on;
         title('Vector field')
     end
+elseif tag == "position-connect"
+    X = []; Y = [];
+    for i=0:N-1
+        X = [X x(1+4*i)]; 
+        Y = [Y x(2+4*i)];
+    end
+    plot(X,Y,'-','color',col);
+    hold on;
+    title('Trajectory')
+end
 end
