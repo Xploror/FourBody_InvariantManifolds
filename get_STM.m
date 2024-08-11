@@ -1,6 +1,7 @@
 function [DPHI,PHI,xf] = get_STM(T, xi, d, flag)
 
-mu = 2.5263e-05; mu1 = 7.7893e-05; p = 1.5949; n = 6.2864; % for L1 (J-E-G)
+%mu = 2.5263e-05; mu1 = 7.7893e-05; p = 1.5949; n = 6.2864; % for L1 (J-E-G)
+mu = 5.6623e-05; mu1 = 7.7890e-05; p = 0.5688; n = 2.3309; % for L1 (J-E-C)
 N = length(xi)/d;
 if flag ==0
     mu1 = 0;

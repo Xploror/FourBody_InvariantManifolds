@@ -14,15 +14,14 @@ x3_prev = 0;
 
 % Integrate states and find monodromy matrix from t0 to t1 taking original x0
 while abs(x(3))>5*10^(-7) || count<3
-    x(3);
     % preparing init conditions for next iteration by updating with STM matrix...
     t = 0; % time-count
     del_xt = [0;0-x(2);0-x(3);0;0];
     del_x0_req = inv(phi)*del_xt;
     if x(1)>(1-mu)
-        x0_corr = x0_corr + [0;0;0;0.0009*del_x0_req(4);0];
+        x0_corr = x0_corr + [0;0;0;0.0001*del_x0_req(4);0];  %0.0009
     else
-        x0_corr(4) = 0.85*x0_corr(4);
+        x0_corr(4) = 0.95*x0_corr(4);  %  0.85
     end
     x = x0_corr;
     X = [x0];
