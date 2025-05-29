@@ -1,6 +1,0 @@
-revised_connections file
-
-changes made -
-		Rescaled n_2 to 1
-		Added T scale in the invariance equations (can be found with key tau_diff)
-		Recheck all thee hyperparameters

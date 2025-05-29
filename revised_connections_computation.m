@@ -328,21 +328,21 @@ end
 % NOTE: RESULTS HIGHLY DEPEND ON VARIABLE "w", FIX IT!!!
 clear Q; clear DFT;
 
-flag = 1;  %0 --> Callisto 1 --> Europa
-load('good plots\plots_for_paper\4_l1.mat');
-load('good plots\plots_for_paper\4_l1data.mat');
+flag = 0;  %0 --> Callisto 1 --> Europa
+load('good plots\plots_for_paper\3c_l1.mat');
+load('good plots\plots_for_paper\3c_l1data.mat');
 Xl1_dc = X_interval;
 Jtot_l1 = J_total;
 Gtot_l1 = G_total;
 
-load('good plots/plots_for_paper/4_l2.mat');
-load('good plots/plots_for_paper/4_l2data.mat');
+load('good plots/plots_for_paper/3c_l2.mat');
+load('good plots/plots_for_paper/3c_l2data.mat');
 Xl2_dc = X_interval;
 Jtot_l2 = J_total;
 Gtot_l2 = G_total;
 
 % These stability matrices are only taking collocation + continuity constraints
-N2_l1 = 41; N2_l2 = 35; %  Europa pairs: [35 29    41 35]  Callisto pairs: [25 25]
+N2_l1 = 25; N2_l2 = 25; %  Europa pairs: [35 29    41 35]  Callisto pairs: [25 25]
 len_circle = 4*N2_l1;
 A_dim = [len_circle*len_coll, len_circle];
 B_dim = [len_circle*len_coll, len_circle*len_coll];
@@ -392,14 +392,14 @@ Gw2 = Rot_l2*PPPHHH2;
 % plot_collected(Xl2_dc(1:4*N2_l2),'position',[0 0 1])
 
 if flag == 1
-    R = 1560000/DU;syms T;fplot((1-mu1)+R*sin(T),R*cos(T),'k','LineWidth',2);
+    R = 1560000/DU;syms T;%fplot((1-mu1)+R*sin(T),R*cos(T),'k','LineWidth',2);
     global mu1;
     mu1 = m_2/(M+m_2);
     mu2 = m_3/(M+m_2);
     a_syn = a_2;
     TU = 4.8824e+04;
 else
-    R = 2403000/DU;syms T;fplot((1-mu1)+R*sin(T),R*cos(T),'k','LineWidth',2);
+    R = 2403000/DU;syms T;%fplot((1-mu1)+R*sin(T),R*cos(T),'k','LineWidth',2);
     global mu1;
     mu1 = m_4/(M+m_4);
     mu2 = m_3/(M+m_4);
@@ -425,9 +425,9 @@ check2 = abs(torus_val2(min_ind,min_ind)); check1 = abs(torus_val1(max_ind,max_i
 eigvec1 = real(torus_vec1(:,max_ind));
 eigvec2 = real(torus_vec2(:,min_ind));
 
-epsilon_st = -5.572e-1;  %(blue)  E - 3e-15           || C - 9e-3       -5.572e-1 gives interesting results 
+epsilon_st = -5.572e-1;  %(blue)  E - 3e-15           || C - 9e-3       -5.572e-1 gives interesting results    -5.57215e-1 better results
 epsilon_unst = 5.66e-1; %(red)  E - -3e-15  -3e-3 || C - -3e-5          5.66e-1 gives Ganymede transition energy for Callisto frame (kk=22 unstable)   5.67e-4 interesting
-propag_length = 3000*24*3600/TU; %300*pi/abs(n_3-1);  % 300 days, 800 days
+propag_length = 700*24*3600/TU; %300*pi/abs(n_3-1);  % 300 days, 800 days
 tspan_st = 0:-0.01:-propag_length;  % for L2
 tspan_unst = 0:0.01:propag_length;  % for L1
 Xst0 = Xl2_dc(1:4*N2_l2) + epsilon_st*eigvec2; % Stable direction (mag less than 1)  (end-6)  (106)
@@ -436,75 +436,71 @@ STORE_POINCARE_STABLE = [];
 STORE_POINCARE_UNSTABLE = [];
 relevants = [];
 
-for kk=0:N2_l2-1
-    [T_st, M_st, t_st, X_st, i_st] = ode45(@(t,x) PCC4BP_eqn(t,x,mu1,mu2,[(a_3/a_syn)+mu1,0], n_3, 3), tspan_st, [Xst0(1+4*kk:4+4*kk);0], opt);
-    if any(sqrt(sum((M_st(:,1:2)-[1-mu1 0]).^2, 2))<=R)  %29 18 12
-        fprintf('removing %d\n',kk)
-    else
-        %if any(sqrt(sum((M_st(:,1:2)).^2, 2))>=(a_3/a_syn)-0.1)    % This is done to find trajectories that are close to Ganymede in Europa frame 
-        if kk==33   
-            relevants = [relevants kk];
-            % % % % % X_iner = plot_inertial(T_st, M_st);
-            % % % % % figure(3);plot(X_iner(:,1),X_iner(:,2),'-b','LineWidth',1);hold on;fplot(-mu1+((a_3/a_syn)+mu1)*sin(T),((a_3/a_syn)+mu1)*cos(T),'-m','LineWidth',2);hold on;fplot(-mu1+sin(T),cos(T),'-k','LineWidth',2);figure(1)
-            % % % % % hold on; plot(M_st(:,1),M_st(:,2),'-b','LineWidth',1)
-            % % % % % pause(0.0001)
-            % % % % % figure(5);
-            for i=1:length(M_st)
-                ss = calc_jacobi(M_st(i,1:4)',mu1,mu2,a_3/a_syn);
-                plot(T_st(i)*TU/(3600*24),ss,'.r');hold on;
-            end 
-            % y = transform_frame(M_st, (a_3/a_syn)+mu1, n_3, mu1, m_3/(M+m_3), 0);
-            % for i=1:length(M_st)
-            %     ss = calc_jacobi(y(i,:)',m_3/(M+m_3),m_2/(M+m_3),a_2/a_syn);
-            %     plot(T_st(i)*TU/(3600*24),ss,'.b');hold on;
-            % end 
-            % idxx = find(abs(y(:,2))<=5e-3); % Poincare for y=0
-            % hold on;plot(y(idxx,1),y(idxx,3),'.b')
-            break;
-        end
-    end
-
-    if ~isempty(X_st)
-        intersects = X_st(abs(X_st(:,2))<0.015,:);
-    else
-        intersects = [];
-    end
-    STORE_POINCARE_STABLE = [STORE_POINCARE_STABLE intersects'];
-end
-
-% for kk=0:N2_l1-1
-%     [T_unst, M_unst, t_unst, X_unst, i_unst] = ode45(@(t,x) PCC4BP_eqn(t,x,mu1,mu2,[(a_3/a_syn)+mu1,0], n_3, 3), tspan_unst, [Xunst0(1+4*kk:4+4*kk);0], opt);
-%     % if kk==22
-%     %     kk
-%     % end
-%     if any(sqrt(sum((M_unst(:,1:2)-[1-mu1 0]).^2, 2))<=R)
-%         %fprintf('removing\n')
+% for kk=0:N2_l2-1
+%     [T_st, M_st, t_st, X_st, i_st] = ode45(@(t,x) PCC4BP_eqn(t,x,mu1,mu2,[(a_3/a_syn)+mu1,0], n_3, 3), tspan_st, [Xst0(1+4*kk:4+4*kk);0], opt);
+%     if any(sqrt(sum((M_st(:,1:2)-[1-mu1 0]).^2, 2))<=R)  %29 18 12
+%         fprintf('removing %d\n',kk)
 %     else
-%         %if any(sqrt(sum((M_unst(:,1:2)).^2, 2))<(a_3/a_syn))  % This is done to find trajectories that are close to Ganymede in Callisto frame
-%         if kk==22
+%         %if any(sqrt(sum((M_st(:,1:2)).^2, 2))>=(a_3/a_syn)-0.1)    % This is done to find trajectories that are close to Ganymede in Europa frame 
+%         if kk==33   
 %             relevants = [relevants kk];
-%             % % % % % X_iner = plot_inertial(T_unst, M_unst);
-%             % % % % % figure(3);plot(X_iner(:,1),X_iner(:,2),'-r');hold on;fplot(-mu1+((a_3/a_syn)+mu1)*sin(T),((a_3/a_syn)+mu1)*cos(T),'-m','LineWidth',2);fplot(-mu1+sin(T),cos(T),'-g','LineWidth',2);figure(1)
-%             % % % % % hold on; plot(M_unst(:,1),M_unst(:,2),'-r','LineWidth',0.8)
-%             % % % % % pause(0.0001)
-%             %y = transform_frame(M_unst, (a_3/a_syn)+mu1, n_3, mu1, m_3/(M+m_3), 0);
-%             for i=1:length(M_unst)
-%                 ss = calc_jacobi(M_unst(i,:)',mu1,mu2,a_3/a_syn);
-%                 plot(T_unst(i)*TU/(3600*24),ss,'.r');hold on;
-%             end
-%             % idxx = find(abs(y(:,2))<=3e-2); % Poincare for y=0
-%             % hold on;plot(y(idxx,1),y(idxx,3),'.r')
+%             % X_iner = plot_inertial(T_st, M_st);
+%             % figure(3);plot(X_iner(:,1),X_iner(:,2),'-b','LineWidth',1);hold on;fplot(-mu1+((a_3/a_syn)+mu1)*sin(T),((a_3/a_syn)+mu1)*cos(T),'-m','LineWidth',2);hold on;fplot(-mu1+sin(T),cos(T),'-k','LineWidth',2);figure(1)
+%             % hold on; plot(M_st(:,1),M_st(:,2),'-b','LineWidth',1)
+%             % pause(0.0001)
+%             % figure(5);
+%             y = transform_frame(M_st, (a_3/a_syn)+mu1, n_3, mu1, m_3/(M+m_3), 0);
+%             % for i=1:length(M_st)
+%             %     ss = calc_jacobi(y(i,:)',m_3/(M+m_3),m_2/(M+m_3),a_2/a_syn);
+%             %     plot(T_st(i)*TU/(3600*24),ss,'.b');hold on;
+%             % end 
+%             idxx = find(abs(y(:,2))<=9e-3); % Poincare for y=0
+%             hold on;plot(y(idxx,1),y(idxx,3),'.b')
 %             break;
 %         end
 %     end
 % 
-%     if ~isempty(X_unst)
-%         intersects = X_unst(abs(X_unst(:,2))<0.015,:);
+%     if ~isempty(X_st)
+%         intersects = X_st(abs(X_st(:,2))<0.015,:);
 %     else
 %         intersects = [];
 %     end
-%     STORE_POINCARE_UNSTABLE = [STORE_POINCARE_UNSTABLE intersects'];
+%     STORE_POINCARE_STABLE = [STORE_POINCARE_STABLE intersects'];
 % end
+
+for kk=0:N2_l1-1
+    [T_unst, M_unst, t_unst, X_unst, i_unst] = ode45(@(t,x) PCC4BP_eqn(t,x,mu1,mu2,[(a_3/a_syn)+mu1,0], n_3, 3), tspan_unst, [Xunst0(1+4*kk:4+4*kk);0], opt);
+    % if kk==22
+    %     kk
+    % end
+    if any(sqrt(sum((M_unst(:,1:2)-[1-mu1 0]).^2, 2))<=R)
+        %fprintf('removing\n')
+    else
+        %if any(sqrt(sum((M_unst(:,1:2)).^2, 2))<(a_3/a_syn))  % This is done to find trajectories that are close to Ganymede in Callisto frame
+        if kk==22
+            relevants = [relevants kk];
+            % % % % % X_iner = plot_inertial(T_unst, M_unst);
+            % % % % % figure(3);plot(X_iner(:,1),X_iner(:,2),'-r');hold on;fplot(-mu1+((a_3/a_syn)+mu1)*sin(T),((a_3/a_syn)+mu1)*cos(T),'-m','LineWidth',2);fplot(-mu1+sin(T),cos(T),'-g','LineWidth',2);figure(1)
+            % % % % % hold on; plot(M_unst(:,1),M_unst(:,2),'-r','LineWidth',0.8)
+            % % % % % pause(0.0001)
+            y = transform_frame(M_unst, (a_3/a_syn)+mu1, n_3, mu1, m_3/(M+m_3), 0);
+            % for i=1:length(M_unst)
+            %     ss = calc_jacobi(M_unst(i,:)',mu1,mu2,a_3/a_syn);
+            %     plot(T_unst(i)*TU/(3600*24),ss,'.r');hold on;+
+            % end
+            idxx = find(abs(y(:,2))<=9e-3); % Poincare for y=0
+            hold on;plot(y(idxx,1),y(idxx,3),'.r')
+            break;
+        end
+    end
+
+    if ~isempty(X_unst)
+        intersects = X_unst(abs(X_unst(:,2))<0.015,:);
+    else
+        intersects = [];
+    end
+    STORE_POINCARE_UNSTABLE = [STORE_POINCARE_UNSTABLE intersects'];
+end
 
 % figure(1);R_gany_orb = (a_3/a_syn)+mu1;syms T;fplot(-mu1+R_gany_orb*sin(T),R_gany_orb*cos(T),'-m','LineWidth',3);
 
