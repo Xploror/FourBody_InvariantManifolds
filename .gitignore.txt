@@ -1,0 +1,5 @@
+good plots/*
+*.mp4
+*.zip
+*.ps
+revised_connections_file.txt
