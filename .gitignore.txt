@@ -1,5 +1,6 @@
 good_plots/*
 extras/*
+extras/*.zip
 *.mp4
 *.zip
 *.ps
